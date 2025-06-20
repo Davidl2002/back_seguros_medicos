@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
-@CrossOrigin(origins = "https://front-seguros-medicos-uxd7-6d6bn7cc0-gestion-pruebas.vercel.app")
+@CrossOrigin(origins = "https://front-seguros-medicos-uxd7.vercel.app/login")
 @RestController
 @RequestMapping("/api/seguros")
 public class SeguroController {

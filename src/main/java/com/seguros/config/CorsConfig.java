@@ -13,7 +13,7 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("https://front-seguros-medicos-uxd7-6d6bn7cc0-gestion-pruebas.vercel.app")
+                        .allowedOrigins("https://front-seguros-medicos-uxd7.vercel.app/login")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
