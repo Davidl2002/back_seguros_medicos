@@ -16,7 +16,7 @@ RUN chmod +x mvnw && \
 COPY src src
 
 # Compila el JAR
-RUN ./mvnw clean package -DskipTests -B
+RUN ./mvnw clean package -DskipTests -Dmaven.test.skip=true -B
 
 # 2. Etapa final: ejecutar el JAR
 FROM eclipse-temurin:17-jre-alpine
