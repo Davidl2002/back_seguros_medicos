@@ -31,15 +31,20 @@ public class SecurityConfig {
                 .cors() // 🔥 ESTO activa tu configuración CorsConfig
                 .and()
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.disable()) // 🔥 Esto es clave
+                )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/api/pagos").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()  // <-- Aquí permites crear usuario sin autenticación
+                        .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/swagger-ui.html/api/auth/**"
+                                "/swagger-ui.html/api/auth/**",
+                                "/uploads/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

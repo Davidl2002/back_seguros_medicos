@@ -51,7 +51,6 @@ class SeguroServiceTest {
         dto.setPrecioAnual(new BigDecimal("500.00"));
         dto.setActivo(true);
         dto.setMontoCobertura(new BigDecimal("100000"));
-        // dto.setCreadoPorId(1L);
 
         Usuario usuario = new Usuario();
         usuario.setId(1L);
@@ -305,5 +304,6 @@ class SeguroServiceTest {
         assertEquals("Nuevo Hospital", ((SeguroSalud) editado).getHospitalesConvenio());
         assertEquals(15, ((SeguroSalud) editado).getNumeroConsultasIncluidas());
     }
+
 
 }

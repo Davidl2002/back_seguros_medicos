@@ -14,6 +14,7 @@ import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -320,11 +321,33 @@ class ContratoServiceTest {
     @Test
     void testObtenerContratosPorVencer() {
         Contrato contrato = new Contrato();
-        when(contratoRepository.findContratosPorVencer(any())).thenReturn(List.of(contrato));
 
-        List<Contrato> result = contratoService.obtenerContratosPorVencer(15);
+        // Datos mínimos requeridos
+        Usuario cliente = new Usuario(); cliente.setId(1L);
+        Usuario agente = new Usuario(); agente.setId(2L);
+        Rol rol = new Rol(); rol.setId(1L); rol.setNombre("AGENTE");
+        agente.setRol(rol);
+        Seguro seguro = new SeguroVida(); seguro.setId(3L); seguro.setNombre("Seguro Vida");
+
+        contrato.setCliente(cliente);
+        contrato.setAgente(agente);
+        contrato.setSeguro(seguro);
+        contrato.setFechaInicio(LocalDate.now());
+        contrato.setFechaFin(LocalDate.now().plusDays(15));
+        contrato.setEstado(Contrato.EstadoContrato.ACTIVO);
+        contrato.setFrecuenciaPago(Contrato.FrecuenciaPago.MENSUAL);
+        contrato.setFirmaElectronica("firma");
+
+        contrato.setBeneficiarios(List.of(new Beneficiario())); // opcional, pero útil
+
+        when(contratoRepository.findContratosPorVencer(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(contrato));
+
+        List<ContratoDTO> result = contratoService.obtenerContratosPorVencer(15);
+
         assertEquals(1, result.size());
     }
+
 
     @Test
     void testCrearContratoSinBeneficiarios_LanzaExcepcion() {
@@ -341,20 +364,6 @@ class ContratoServiceTest {
         assertEquals("Debe agregar al menos un beneficiario para crear el contrato.", ex.getMessage());
     }
 
-    @Test
-    void testCrearContrato_BeneficiariosNulos_LanzaExcepcion() {
-        ContratoDTO dto = new ContratoDTO();
-        dto.setClienteId(1L);
-        dto.setAgenteId(2L);
-        dto.setSeguroId(3L);
-        dto.setBeneficiarios(null); // <-- caso específico
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
-            contratoService.crearContrato(dto);
-        });
-
-        assertEquals("Debe agregar al menos un beneficiario para crear el contrato.", ex.getMessage());
-    }
 
     @Test
     void testCrearContrato_BeneficiariosVacios_LanzaExcepcion() {
@@ -401,13 +410,34 @@ class ContratoServiceTest {
     @Test
     void testObtenerContratosPorVencer_FechaLimiteCorrecta() {
         Contrato contrato = new Contrato();
-        when(contratoRepository.findContratosPorVencer(any())).thenReturn(List.of(contrato));
 
-        List<Contrato> result = contratoService.obtenerContratosPorVencer(15);
+        Usuario cliente = new Usuario(); cliente.setId(1L);
+        Usuario agente = new Usuario(); agente.setId(2L);
+        Rol rol = new Rol(); rol.setId(1L); rol.setNombre("AGENTE");
+        agente.setRol(rol);
+        Seguro seguro = new SeguroVida(); seguro.setId(3L);
+
+        contrato.setCliente(cliente);
+        contrato.setAgente(agente);
+        contrato.setSeguro(seguro);
+        contrato.setFechaInicio(LocalDate.now());
+        contrato.setFechaFin(LocalDate.now().plusDays(15));
+        contrato.setEstado(Contrato.EstadoContrato.ACTIVO);
+        contrato.setFrecuenciaPago(Contrato.FrecuenciaPago.MENSUAL);
+        contrato.setFirmaElectronica("firma");
+
+        contrato.setBeneficiarios(List.of(new Beneficiario())); // opcional, pero evita otros NPE
+
+        when(contratoRepository.findContratosPorVencer(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(contrato));
+
+        List<ContratoDTO> result = contratoService.obtenerContratosPorVencer(15);
 
         assertEquals(1, result.size());
-        verify(contratoRepository).findContratosPorVencer(any(LocalDate.class));
+        verify(contratoRepository).findContratosPorVencer(any(LocalDate.class), any(LocalDate.class));
     }
+
+
 
     @Test
     void testConvertirAContratoDTO_ConArchivosYBeneficiarios() {
@@ -523,9 +553,13 @@ class ContratoServiceTest {
     void testConvertirAContratoDTO_ArchivosJsonInvalido() {
         Contrato contrato = new Contrato();
         contrato.setId(1L);
-        contrato.setCliente(new Usuario()); contrato.getCliente().setId(1L);
 
-        Usuario agente = new Usuario(); agente.setId(2L);
+        Usuario cliente = new Usuario();
+        cliente.setId(1L);
+        contrato.setCliente(cliente);
+
+        Usuario agente = new Usuario();
+        agente.setId(2L);
         Rol rol = new Rol();
         rol.setId(1L);
         rol.setNombre("ADMIN");
@@ -533,17 +567,25 @@ class ContratoServiceTest {
         agente.setRol(rol);
         contrato.setAgente(agente);
 
-        contrato.setSeguro(new SeguroVida()); contrato.getSeguro().setId(3L);
+        SeguroVida seguro = new SeguroVida();
+        seguro.setId(3L);
+        contrato.setSeguro(seguro);
+
         contrato.setFechaInicio(LocalDate.now());
         contrato.setFechaFin(LocalDate.now().plusDays(30));
         contrato.setFrecuenciaPago(Contrato.FrecuenciaPago.MENSUAL);
         contrato.setEstado(Contrato.EstadoContrato.ACTIVO);
         contrato.setFirmaElectronica("firma");
 
-        contrato.setArchivos("invalid-json:::");
+        contrato.setArchivos("invalid-json:::"); // Simula JSON inválido
 
-        contratoService.convertirAContratoDTO(contrato);
+        // Act
+        ContratoDTO dto = contratoService.convertirAContratoDTO(contrato);
+
+        // ✅ Assert: debe continuar sin lanzar error, y archivos debe ser null o vacío
+        assertNull(dto.getArchivos(), "El campo archivos debe ser null cuando el JSON es inválido");
     }
+
 
 
     @Test
@@ -576,24 +618,42 @@ class ContratoServiceTest {
     void testConvertirAContratoDTO_AgenteYSeguroNoNulos() {
         Contrato contrato = new Contrato();
         contrato.setId(1L);
-        Usuario agente = new Usuario(); agente.setId(2L);
-        Rol rol = new Rol(); rol.setId(1L); rol.setNombre("ADMIN");
+
+        Usuario agente = new Usuario();
+        agente.setId(2L);
+        Rol rol = new Rol();
+        rol.setId(1L);
+        rol.setNombre("ADMIN");
         agente.setRol(rol);
         agente.setActivo(true);
         contrato.setAgente(agente);
 
-        SeguroVida seguro = new SeguroVida(); seguro.setId(3L); seguro.setNombre("Vida");
+        SeguroVida seguro = new SeguroVida();
+        seguro.setId(3L);
+        seguro.setNombre("Vida");
         contrato.setSeguro(seguro);
 
-        contrato.setCliente(new Usuario()); contrato.getCliente().setId(1L);
+        Usuario cliente = new Usuario();
+        cliente.setId(1L);
+        contrato.setCliente(cliente);
+
         contrato.setFrecuenciaPago(Contrato.FrecuenciaPago.MENSUAL);
         contrato.setFechaInicio(LocalDate.now());
         contrato.setFechaFin(LocalDate.now().plusMonths(1));
         contrato.setEstado(Contrato.EstadoContrato.ACTIVO);
         contrato.setFirmaElectronica("firma");
 
-        contratoService.convertirAContratoDTO(contrato);
+        // Aquí se llama al método
+        ContratoDTO dto = contratoService.convertirAContratoDTO(contrato);
+
+        // ✅ Aserciones obligatorias para validar
+        assertEquals(1L, dto.getId());
+        assertEquals("Vida", dto.getSeguro().getNombre());
+        assertEquals(2L, dto.getAgente().getId());
+        assertEquals("ADMIN", dto.getAgente().getRolNombre());
+        assertEquals("firma", dto.getFirmaElectronica());
     }
+
 
     @Test
     void testActualizarContrato_EstadoEditableSiNoActivo() {
@@ -627,6 +687,38 @@ class ContratoServiceTest {
 
         assertEquals(Contrato.EstadoContrato.CANCELADO, actualizado.getEstado());
     }
+    @Test
+    void testActualizarContrato_EstadoNullNoSobrescribe() {
+        Contrato contrato = new Contrato();
+        contrato.setId(1L);
+        contrato.setEstado(Contrato.EstadoContrato.CANCELADO); // estado inicial
+        contrato.setBeneficiarios(new ArrayList<>());
 
+        Usuario cliente = new Usuario(); cliente.setId(1L);
+        Usuario agente = new Usuario(); agente.setId(2L);
+        agente.setRol(new Rol()); agente.getRol().setId(1L); agente.getRol().setNombre("ADMIN");
+        Seguro seguro = new SeguroVida(); seguro.setId(3L);
+
+        when(contratoRepository.findById(1L)).thenReturn(Optional.of(contrato));
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(agente));
+        when(seguroRepository.findById(3L)).thenReturn(Optional.of(seguro));
+        when(contratoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ContratoDTO dto = new ContratoDTO();
+        dto.setClienteId(1L);
+        dto.setAgenteId(2L);
+        dto.setSeguroId(3L);
+        dto.setFechaInicio(LocalDate.now());
+        dto.setFechaFin(LocalDate.now().plusDays(30));
+        dto.setFrecuenciaPago(Contrato.FrecuenciaPago.MENSUAL);
+        dto.setEstado(null); // no lo cambiamos
+        dto.setBeneficiarios(List.of(crearBeneficiarioDTO()));
+
+        Contrato actualizado = contratoService.actualizarContrato(1L, dto);
+
+        // Asegura que no fue modificado
+        assertEquals(Contrato.EstadoContrato.CANCELADO, actualizado.getEstado());
+    }
 
 }

@@ -19,7 +19,7 @@ public class UsuarioController {
         this.usuarioService = usuarioService;
     }
 
-    //@PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Usuario> crearUsuario(@RequestBody RegistroDTO registroDTO) {
         return ResponseEntity.ok(usuarioService.crearUsuario(registroDTO));

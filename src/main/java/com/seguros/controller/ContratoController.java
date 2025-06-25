@@ -36,13 +36,22 @@ public class ContratoController {
 
     @GetMapping("/por-vencer")
     public ResponseEntity<List<ContratoDTO>> obtenerPorVencer(@RequestParam(defaultValue = "30") int dias) {
-        List<Contrato> contratos = contratoService.obtenerContratosPorVencer(dias);
-        List<ContratoDTO> dtos = contratos.stream()
-                .map(contratoService::convertirAContratoDTO)
-                .toList();
-        return ResponseEntity.ok(dtos);
+        List<ContratoDTO> contratos = contratoService.obtenerContratosPorVencer(dias);
+        return ResponseEntity.ok(contratos);
     }
 
+    @GetMapping("/cliente/{clienteId}/aceptados")
+    public ResponseEntity<List<ContratoDTO>> obtenerAceptadosPorCliente(
+            @PathVariable Long clienteId) {
+
+        List<Contrato> todos = contratoService.obtenerTodosPorCliente(clienteId);
+        List<ContratoDTO> dtos = todos.stream()
+                .filter(c -> c.getEstado() == Contrato.EstadoContrato.ACEPTADO)
+                .map(contratoService::convertirAContratoDTO)
+                .toList();
+
+        return ResponseEntity.ok(dtos);
+    }
 
     @PutMapping("/{id}/estado")
     public ResponseEntity<ContratoDTO> actualizarEstado(
@@ -74,6 +83,13 @@ public class ContratoController {
                 .map(contratoService::convertirAContratoDTO)
                 .toList();
         return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ContratoDTO> obtenerPorId(@PathVariable Long id) {
+        Contrato contrato = contratoService.obtenerPorId(id);
+        ContratoDTO dto = contratoService.convertirAContratoDTO(contrato);
+        return ResponseEntity.ok(dto);
     }
 
 }

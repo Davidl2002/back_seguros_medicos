@@ -1,5 +1,6 @@
 package com.seguros.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seguros.dto.BeneficiarioDTO;
@@ -11,6 +12,8 @@ import com.seguros.repository.ContratoRepository;
 import com.seguros.repository.SeguroRepository;
 import com.seguros.repository.UsuarioRepository;
 import com.seguros.util.MensajesError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
@@ -23,6 +26,8 @@ public class ContratoService {
     private final ContratoRepository contratoRepository;
     private final UsuarioRepository usuarioRepository;
     private final SeguroRepository seguroRepository;
+    private static final Logger logger = LoggerFactory.getLogger(ContratoService.class);
+
 
     public ContratoService(ContratoRepository contratoRepository,
                            UsuarioRepository usuarioRepository,
@@ -30,6 +35,15 @@ public class ContratoService {
         this.contratoRepository = contratoRepository;
         this.usuarioRepository = usuarioRepository;
         this.seguroRepository = seguroRepository;
+    }
+
+    public List<Contrato> obtenerTodosPorCliente(Long clienteId) {
+        return contratoRepository.findAllByClienteId(clienteId);
+    }
+
+    public Contrato obtenerPorId(Long id) {
+        return contratoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException(MensajesError.CONTRATO_NO_ENCONTRADO));
     }
 
     @Transactional
@@ -89,15 +103,10 @@ public class ContratoService {
         return contratoRepository.findContratosActivosPorCliente(clienteId);
     }
 
-    public List<Contrato> obtenerContratosPorVencer(int dias) {
-        LocalDate fechaLimite = LocalDate.now().plusDays(dias);
-        return contratoRepository.findContratosPorVencer(fechaLimite);
-    }
-
     @Transactional
     public Contrato actualizarEstado(Long contratoId, Contrato.EstadoContrato nuevoEstado) {
         Contrato contrato = contratoRepository.findById(contratoId)
-                .orElseThrow(() -> new RuntimeException("Contrato no encontrado"));
+                .orElseThrow(() -> new RuntimeException(MensajesError.CONTRATO_NO_ENCONTRADO));
 
         contrato.setEstado(nuevoEstado);
         return contratoRepository.save(contrato);
@@ -105,7 +114,7 @@ public class ContratoService {
 
     public Contrato obtenerContratoValido(Long contratoId) {
         Contrato contrato = contratoRepository.findById(contratoId)
-                .orElseThrow(() -> new RuntimeException("Contrato no encontrado"));
+                .orElseThrow(() -> new RuntimeException(MensajesError.CONTRATO_NO_ENCONTRADO));
 
         if (!contrato.isActivo()) {
             throw new RuntimeException("El contrato no está activo");
@@ -133,8 +142,9 @@ public class ContratoService {
                 dto.setArchivos(archivosMap);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error al leer los archivos del contrato con ID: {}", contrato.getId(), e);
         }
+
 
         if (contrato.getBeneficiarios() != null) {
             List<BeneficiarioDTO> beneficiarios = contrato.getBeneficiarios().stream().map(b -> {
@@ -212,17 +222,18 @@ public class ContratoService {
         contrato.setFrecuenciaPago(dto.getFrecuenciaPago());
         contrato.setFirmaElectronica(dto.getFirmaElectronica());
 
-        // Archivos
-        if (dto.getArchivos() != null) {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                contrato.setArchivos(mapper.writeValueAsString(dto.getArchivos()));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
 
-        // Beneficiarios (elimina y reemplaza todos)
+            if (dto.getArchivos() != null) {
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    contrato.setArchivos(mapper.writeValueAsString(dto.getArchivos()));
+                } catch (JsonProcessingException e) {
+                    logger.error("Error al convertir archivos del DTO a JSON para el contrato ID {}: {}", contrato.getId(), e.getMessage(), e);
+                }
+            }
+
+
+            // Beneficiarios (elimina y reemplaza todos)
         contrato.getBeneficiarios().clear();
         List<Beneficiario> nuevos = dto.getBeneficiarios().stream().map(b -> {
             Beneficiario beneficiario = new Beneficiario();
@@ -244,4 +255,30 @@ public class ContratoService {
     public List<Contrato> obtenerTodos() {
         return contratoRepository.findAll();
     }
+
+    public List<ContratoDTO> obtenerContratosImpagos() {
+        List<Contrato> impagos = contratoRepository.findContratosImpagos();
+        return impagos.stream().map(this::convertirAContratoDTO).toList();
+    }
+
+    public List<ContratoDTO> obtenerContratosVencidos() {
+        LocalDate hoy = LocalDate.now();
+        List<Contrato> vencidos = contratoRepository.findByFechaFinBeforeAndEstado(hoy, Contrato.EstadoContrato.ACTIVO);
+        return vencidos.stream().map(this::convertirAContratoDTO).toList();
+    }
+
+    public List<ContratoDTO> obtenerContratosPorVencer() {
+        LocalDate hoy = LocalDate.now();
+        LocalDate fechaLimite = hoy.plusDays(30);
+
+        List<Contrato> porVencer = contratoRepository.findContratosPorVencer(hoy, fechaLimite);
+        return porVencer.stream().map(this::convertirAContratoDTO).toList();
+    }
+    public List<ContratoDTO> obtenerContratosPorVencer(int dias) {
+        LocalDate hoy = LocalDate.now();
+        LocalDate fechaLimite = hoy.plusDays(dias);
+        List<Contrato> porVencer = contratoRepository.findContratosPorVencer(hoy, fechaLimite);
+        return porVencer.stream().map(this::convertirAContratoDTO).toList();
+    }
+
 }
