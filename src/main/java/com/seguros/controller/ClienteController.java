@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@CrossOrigin(origins = "https://front-seguros-medicos-uxd7.vercel.app")
 @RequestMapping("/api/clientes")
 public class ClienteController {
 
@@ -19,13 +20,11 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENTE')")
     @PostMapping
     public ResponseEntity<ClienteResponseDTO> crearCliente(@RequestBody ClienteRequestDTO dto) {
         return ResponseEntity.ok(clienteService.crearCliente(dto));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENTE')")
     @GetMapping
     public ResponseEntity<List<ClienteResponseDTO>> listarClientes() {
         return ResponseEntity.ok(clienteService.listarClientes());
